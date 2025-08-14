@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SRJ | ePrijava rođenja</title>
+  <style>
+    :root{
+      --bg:#0b1220; --card:#121a2b; --muted:#8ea0bf; --text:#e8efff; --accent:#5da0ff; --ok:#2ecc71; --warn:#ffba42; --bad:#ff6b6b;
+      --br:18px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);}    
+    a{color:var(--accent)}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0}
+    .brand{display:flex;align-items:center;gap:12px}
+    .crest{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#c8102e,#00205b);box-shadow:0 0 0 3px rgba(93,160,255,.25) inset}
+    h1{font-size:22px;margin:0}
+    .card{background:var(--card);border-radius:var(--br);padding:20px;box-shadow:0 4px 20px rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.06)}
+    .grid{display:grid;gap:16px}
+    .two{grid-template-columns:1fr 1fr}
+    .three{grid-template-columns:repeat(3,1fr)}
+    @media (max-width:900px){.two,.three{grid-template-columns:1fr}}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input,select,textarea{width:100%;padding:12px 14px;border-radius:14px;background:#0e1728;border:1px solid rgba(255,255,255,.08);color:var(--text);outline:none}
+    input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(93,160,255,.15)}
+    textarea{min-height:84px;resize:vertical}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{appearance:none;border:none;border-radius:14px;padding:12px 16px;background:var(--accent);color:#06122b;font-weight:700;cursor:pointer}
+    .btn.secondary{background:#0e1728;color:var(--text);border:1px solid rgba(255,255,255,.1)}
+    .btn.ghost{background:transparent;border:1px dashed rgba(255,255,255,.25);color:var(--text)}
+    .btn.ok{background:var(--ok);color:#071b11}
+    .btn.warn{background:var(--warn);color:#241803}
+    .btn.bad{background:var(--bad);color:#2b0707}
+    .right{margin-left:auto}
+    .muted{color:var(--muted)}
+    .pill{font-size:12px;padding:6px 10px;border-radius:99px;background:#0e1728;border:1px solid rgba(255,255,255,.1);display:inline-flex;align-items:center;gap:6px}
+    .hide{display:none}
+
+    /* table */
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:12px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08)}
+    tr:hover{background:#0d1424}
+
+    /* toast */
+    #toast{position:fixed;bottom:20px;right:20px;background:#0e1728;color:var(--text);padding:12px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.12);box-shadow:0 12px 30px rgba(0,0,0,.35);opacity:0;transform:translateY(10px);transition:all .25s}
+    #toast.show{opacity:1;transform:none}
+
+    /* print styles */
+    @media print{
+      header,.nav, .actions, #logout, #login, #save, #genJmbg, #newFormBtn {display:none !important}
+      body{background:white;color:black}
+      .card{box-shadow:none;border:none}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="crest" aria-hidden="true"></div>
+        <div>
+          <h1>Savezna Republika Jugoslavija — Portal za prijavu rođenja</h1>
+          <div class="muted" id="facilityName">Bolnička aplikacija</div>
+        </div>
+      </div>
+      <div id="userBadge" class="pill hide">
+        <span id="doctorName">Dr Milica Lazović</span>
+        <span class="muted" id="clock"></span>
+      </div>
+    </header>
+
+    <!-- LOGIN -->
+    <section id="login" class="card">
+      <h2>Prijava za zdravstvene ustanove</h2>
+      <p class="muted">Pristup imaju ovlašćeni zdravstveni radnici.</p>
+      <div class="grid two">
+        <div>
+          <label for="username">Korisničko ime</label>
+          <input id="username" placeholder="npr."imekorisnika" autocomplete="username" />
+        </div>
+        <div>
+          <label for="pin">PIN</label>
+          <input id="pin" placeholder="•••••••••••" inputmode="numeric" autocomplete="current-password" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="loginBtn">Uđi u sistem</button>
+      </div>
+    </section>
+
+    <!-- APP -->
+    <section id="app" class="hide">
+      <nav class="nav row" style="margin: 6px 0 16px 0">
+        <span class="pill">Ulogovani: <strong id="who"></strong></span>
+        <button class="btn" id="newFormBtn">Nova prijava rođenja</button>
+        <button class="btn secondary" id="listBtn">Sačuvane prijave</button>
+        <button class="btn ghost right" id="logout">Odjava</button>
+      </nav>
+
+      <div id="formView" class="card">
+        <h2>ePrijava rođenja — unos podataka</h2>
+        <p class="muted">Popunite sledeća polja. Polja označena * su obavezna.</p>
+
+        <form id="birthForm" onsubmit="return false;">
+          <div class="grid two">
+            <div>
+              <label>Ime deteta *</label>
+              <input id="imeDeteta" required />
+            </div>
+            <div>
+              <label>Pol *</label>
+              <select id="pol" required>
+                <option value="">— izaberite —</option>
+                <option>Muško</option>
+                <option>Žensko</option>
+              </select>
+            </div>
+            <div>
+              <label>Datum rođenja *</label>
+              <input id="datum" type="date" required />
+            </div>
+            <div>
+              <label>Vreme rođenja *</label>
+              <input id="vreme" type="time" required />
+            </div>
+            <div>
+              <label>Težina (g)</label>
+              <input id="tezina" type="number" min="300" max="8000" step="1" placeholder="npr. 3300" />
+            </div>
+            <div>
+              <label>Dužina (cm)</label>
+              <input id="duzina" type="number" min="20" max="70" step="0.1" placeholder="npr. 51.0" />
+            </div>
+            <div>
+              <label>Apgar (0–10)</label>
+              <input id="apgar" type="number" min="0" max="10" step="1" />
+            </div>
+            <div>
+              <label>Krvna grupa</label>
+              <select id="krv">
+                <option value="">Nepoznato</option>
+                <option>O+</option><option>O−</option>
+                <option>A+</option><option>A−</option>
+                <option>B+</option><option>B−</option>
+                <option>AB+</option><option>AB−</option>
+              </select>
+            </div>
+            <div>
+              <label>Mesto rođenja (bolnica) *</label>
+              <input id="mesto" required placeholder="npr. KC Novi Sad" />
+            </div>
+            <div>
+              <label>Blizanačka trudnoća</label>
+              <select id="blizanci">
+                <option>Ne</option>
+                <option>Da</option>
+              </select>
+            </div>
+          </div>
+
+          <h3 style="margin-top:18px">Podaci o roditeljima</h3>
+          <div class="grid two">
+            <div>
+              <label>Majka — ime i prezime *</label>
+              <input id="majka" required />
+            </div>
+            <div>
+              <label>Otac — ime i prezime</label>
+              <input id="otac" />
+            </div>
+            <div>
+              <label>Adresa prebivališta</label>
+              <input id="adresa" />
+            </div>
+            <div>
+              <label>Opština</label>
+              <input id="opstina" />
+            </div>
+          </div>
+
+          <h3 style="margin-top:18px">Zdravstveno osiguranje i zahtevi</h3>
+          <div class="grid two">
+            <div>
+              <label>Izbor osiguranja *</label>
+              <select id="osiguranje" required>
+                <option value="">— izaberite —</option>
+                <option>fzoj — preko majke</option>
+                <option>fzoj — preko oca</option>
+                <option>Privatno</option>
+                <option>Drugo</option>
+              </select>
+            </div>
+            <div>
+              <label>Zahtev za izvod iz matične knjige rođenih *</label>
+              <select id="izvod" required>
+                <option value="">— izaberite —</option>
+                <option>Da</option>
+                <option>Ne</option>
+              </select>
+            </div>
+            <div>
+              <label>JMBG deteta</label>
+              <div class="row">
+                <input id="jmbg" placeholder="13 cifara" maxlength="13" inputmode="numeric" />
+                <button class="btn secondary" id="genJmbg" type="button">Generiši JMBG</button>
+              </div>
+              <small class="muted">Broj se računa iz datuma rođenja i identifikatora. Proverite pre čuvanja.</small>
+            </div>
+          </div>
+
+          <div class="row actions" style="margin-top:16px">
+            <button class="btn ok" id="save">Sačuvaj prijavu</button>
+            <button class="btn secondary" id="preview">Pregled / štampa</button>
+            <button class="btn ghost" id="reset">Očisti formu</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="listView" class="card hide">
+        <div class="row" style="align-items:center">
+          <h2 style="margin:0">Sačuvane prijave</h2>
+          <button class="btn secondary right" id="exportBtn">Izvoz JSON</button>
+        </div>
+        <p class="muted">Prikaz do 100 poslednjih prijava na ovom uređaju.</p>
+        <div class="tableWrap">
+          <table id="tbl">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Ime deteta</th>
+                <th>Datum</th>
+                <th>Vreme</th>
+                <th>Pol</th>
+                <th>Bolnica</th>
+                <th>JMBG</th>
+                <th class="right">Radnje</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast"></div>
+
+  <template id="printTemplate">
+    <div>
+      <h2 style="margin:0 0 8px 0">Potvrda o prijavi rođenja</h2>
+      <div class="muted" style="margin-bottom:10px">Sistem: ePrijava rođenja — SRJ</div>
+      <div id="printBody"></div>
+    </div>
+  </template>
+
+  <script>
+    // ——— UTIL
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+    const toast = (msg) => { const t=$('#toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200)};
+
+    // ——— CLOCK
+    const tickClock = ()=>{ const d=new Date(); $('#clock').textContent=d.toLocaleString('sr-RS');}; setInterval(tickClock,1000); tickClock();
+
+    // ——— LOGIN
+    const VALID_USER = { username:'milicakcns', pin:'12345678900', name:'Dr Milica Lazović' };
+    $('#loginBtn').addEventListener('click',()=>{
+      const u=$('#username').value.trim();
+      const p=$('#pin').value.trim();
+      if(u===VALID_USER.username && p===VALID_USER.pin){
+        $('#login').classList.add('hide');
+        $('#app').classList.remove('hide');
+        $('#userBadge').classList.remove('hide');
+        $('#who').textContent=VALID_USER.name;
+        $('#doctorName').textContent=VALID_USER.name;
+        toast('Uspešno prijavljeni.');
+        // optionally set facility name from localStorage
+        const savedFacility = localStorage.getItem('srj_facility') || 'KC Novi Sad';
+        $('#facilityName').textContent = savedFacility;
+        $('#mesto').value = savedFacility;
+      }else{
+        toast('Pogrešno korisničko ime ili PIN.');
+      }
+    });
+    $('#logout').addEventListener('click',()=>{ location.reload(); });
+
+    // ——— STORAGE
+    const KEY='srj_prijave_v1';
+    const loadAll = ()=>{ try{ return JSON.parse(localStorage.getItem(KEY))||[] }catch{ return [] } };
+    const saveAll = (arr)=> localStorage.setItem(KEY, JSON.stringify(arr.slice(-100)));
+
+    // ——— FORM LOGIC
+    const clearForm = ()=>{ $$('#birthForm input, #birthForm select, #birthForm textarea').forEach(el=>{ if(el.id==='mesto'){return} el.value=''; }); };
+    $('#reset').addEventListener('click', clearForm);
+    $('#newFormBtn').addEventListener('click',()=>{ $('#formView').classList.remove('hide'); $('#listView').classList.add('hide');});
+    $('#listBtn').addEventListener('click',()=>{ renderTable(); $('#listView').classList.remove('hide'); $('#formView').classList.add('hide'); });
+
+    // ——— JMBG (aproksimacija za potrebe sistema na setu)
+    function genJMBG(){
+      const d=$('#datum').value; const pol=$('#pol').value;
+      if(!d){ toast('Unesite datum rođenja.'); return; }
+      const [Y,M,D]=d.split('-').map(x=>parseInt(x,10));
+      // format DDMMYYYRRBBK (ovde: DDMMYYY + region 70 + pol-serijski + kontrolna)
+      const dd=("0"+D).slice(-2), mm=("0"+M).slice(-2), yyy=(""+Y).slice(-3); // uzimamo poslednje 3 cifre godine (npr. 2025 -> 025)
+      const region='70'; // fiktivni kod
+      const serial = (pol==='Žensko'?500:0) + Math.floor(Math.random()*499) + 1; // 001–499 muško, 501–999 žensko
+      const rrbb = ("000"+serial).slice(-3);
+      const partial = dd+mm+yyy+region+rrbb;
+      // jednostavna kontrolna cifra (ne pravi JMBG algoritam, ali stabilna za snimanje)
+      let sum=0; const w=[7,6,5,4,3,2,7,6,5,4,3,2];
+      for(let i=0;i<12;i++){ sum += parseInt(partial[i],10)*w[i]; }
+      let k = 11 - (sum % 11); if(k>9) k=0;
+      return partial + k;
+    }
+    $('#genJmbg').addEventListener('click',()=>{ $('#jmbg').value = genJMBG(); toast('JMBG generisan.'); });
+
+    // ——— SAVE
+    $('#save').addEventListener('click',()=>{
+      const data={
+        ime:$('#imeDeteta').value.trim(), pol:$('#pol').value, datum:$('#datum').value, vreme:$('#vreme').value,
+        tezina:$('#tezina').value, duzina:$('#duzina').value, apgar:$('#apgar').value, krv:$('#krv').value,
+        mesto:$('#mesto').value.trim(), blizanci:$('#blizanci').value,
+        majka:$('#majka').value.trim(), otac:$('#otac').value.trim(), adresa:$('#adresa').value.trim(), opstina:$('#opstina').value.trim(),
+        osiguranje:$('#osiguranje').value, izvod:$('#izvod').value, jmbg:$('#jmbg').value.trim(),
+        ts:new Date().toISOString(), lekar:VALID_USER.name
+      };
+      // osnovna validacija
+      const required=['ime','pol','datum','vreme','mesto','majka','osiguranje','izvod'];
+      for(const k of required){ if(!data[k]){ toast('Nedostaju obavezni podaci.'); return; } }
+      // minimalno: bar 2 prijave treba da mogu da stanu — čuvamo do 100
+      const all=loadAll(); all.push(data); saveAll(all); toast('Prijava sačuvana.'); clearForm();
+    });
+
+    // ——— PREVIEW/PRINT
+    $('#preview').addEventListener('click',()=>{
+      const flds={
+        'Ime deteta':$('#imeDeteta').value,'Pol':$('#pol').value,'Datum rođenja':$('#datum').value,'Vreme rođenja':$('#vreme').value,
+        'Težina (g)':$('#tezina').value,'Dužina (cm)':$('#duzina').value,'Apgar':$('#apgar').value,'Krvna grupa':$('#krv').value,
+        'Bolnica':$('#mesto').value,'Blizanci':$('#blizanci').value,
+        'Majka':$('#majka').value,'Otac':$('#otac').value,'Adresa':$('#adresa').value,'Opština':$('#opstina').value,
+        'Osiguranje':$('#osiguranje').value,'Zahtev za izvod':$('#izvod').value,'JMBG':$('#jmbg').value
+      };
+      const html=['<table style="width:100%;border-collapse:collapse">'];
+      for(const [k,v] of Object.entries(flds)){
+        html.push(`<tr><td style="padding:8px 6px;border-bottom:1px solid #ddd"><strong>${k}</strong></td><td style="padding:8px 6px;border-bottom:1px solid #ddd">${v||''}</td></tr>`);
+      }
+      html.push(`<tr><td style="padding:8px 6px"><strong>Lekar</strong></td><td style="padding:8px 6px">${VALID_USER.name}</td></tr>`);
+      html.push('</table>');
+      const tpl = document.importNode($('#printTemplate').content,true);
+      tpl.querySelector('#printBody').innerHTML = html.join('');
+      const w = window.open('', 'printwin');
+      w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Potvrda</title></head><body>'+tpl.firstElementChild.outerHTML+'</body></html>');
+      w.document.close(); w.focus();
+    });
+
+    // ——— LIST
+    function renderTable(){
+      const body = $('#tbl tbody'); body.innerHTML='';
+      const all=loadAll();
+      if(all.length===0){ body.innerHTML='<tr><td colspan="8" class="muted">Nema sačuvanih prijava.</td></tr>'; return; }
+      all.forEach((r,i)=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML = `
+          <td>${i+1}</td>
+          <td>${r.ime||''}</td>
+          <td>${r.datum||''}</td>
+          <td>${r.vreme||''}</td>
+          <td>${r.pol||''}</td>
+          <td>${r.mesto||''}</td>
+          <td>${r.jmbg||''}</td>
+          <td style="text-align:right">
+            <button class="btn secondary" data-act="view" data-i="${i}">Pregled</button>
+            <button class="btn warn" data-act="print" data-i="${i}">Štampa</button>
+            <button class="btn bad" data-act="del" data-i="${i}">Obriši</button>
+          </td>`;
+        body.appendChild(tr);
+      });
+      body.addEventListener('click', (e)=>{
+        const b=e.target.closest('button'); if(!b) return; const i=parseInt(b.dataset.i,10); const act=b.dataset.act; const all=loadAll(); const r=all[i];
+        if(act==='del'){ all.splice(i,1); saveAll(all); renderTable(); toast('Prijava obrisana.'); }
+        if(act==='view'){ fillForm(r); $('#formView').classList.remove('hide'); $('#listView').classList.add('hide'); }
+        if(act==='print'){
+          const w = window.open('', 'printwin');
+          const rows = Object.entries(r).map(([k,v])=>`<tr><td style=\"padding:8px 6px;border-bottom:1px solid #ddd\"><strong>${k}</strong></td><td style=\"padding:8px 6px;border-bottom:1px solid #ddd\">${v||''}</td></tr>`).join('');
+          w.document.write(`<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>Potvrda</title></head><body><h2>Potvrda o prijavi rođenja</h2><table style=\"width:100%;border-collapse:collapse\">${rows}</table></body></html>`);
+          w.document.close(); w.focus();
+        }
+      }, { once:true });
+    }
+
+    function fillForm(r){
+      $('#imeDeteta').value=r.ime||''; $('#pol').value=r.pol||''; $('#datum').value=r.datum||''; $('#vreme').value=r.vreme||'';
+      $('#tezina').value=r.tezina||''; $('#duzina').value=r.duzina||''; $('#apgar').value=r.apgar||''; $('#krv').value=r.krv||'';
+      $('#mesto').value=r.mesto||''; $('#blizanci').value=r.blizanci||'Ne';
+      $('#majka').value=r.majka||''; $('#otac').value=r.otac||''; $('#adresa').value=r.adresa||''; $('#opstina').value=r.opstina||'';
+      $('#osiguranje').value=r.osiguranje||''; $('#izvod').value=r.izvod||''; $('#jmbg').value=r.jmbg||'';
+    }
+
+    // ——— EXPORT
+    $('#exportBtn').addEventListener('click', ()=>{
+      const blob = new Blob([JSON.stringify(loadAll(),null,2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='srj-prijave.json'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    // ——— FACILITY quick set via prompt (optional, dostupno posle logina kroz naslov)
+    $('#facilityName').addEventListener('click', ()=>{
+      if($('#app').classList.contains('hide')) return; // samo kad je ulogovan
+      const val = prompt('Naziv ustanove', $('#facilityName').textContent || '');
+      if(val){ localStorage.setItem('srj_facility', val); $('#facilityName').textContent=val; $('#mesto').value=val; toast('Naziv ustanove sačuvan.'); }
+    });
+  </script>
+</body>
+</html>
